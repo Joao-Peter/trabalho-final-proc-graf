@@ -1,0 +1,23 @@
+In file included from exemplo_07.cpp:20:
+ltMath.h: In function 'float* cross(float*, float*)':
+ltMath.h:52:12: warning: address of local variable 'v' returned [-Wreturn-local-addr]
+   52 |     return v;
+      |            ^
+ltMath.h:51:11: note: declared here
+   51 |     float v[] = {x, y, z};
+      |           ^
+exemplo_07.cpp: In function 'unsigned int getTileVAO()':
+exemplo_07.cpp:199:24: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+  199 |         tmap = readMap("terrain1.tmap");
+      |                        ^~~~~~~~~~~~~~~
+exemplo_07.cpp:210:26: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+  210 |         loadTexture(tid, "terrain.png");
+      |                          ^~~~~~~~~~~~~
+exemplo_07.cpp: In function 'GameObject* getCharObject()':
+exemplo_07.cpp:258:32: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+  258 |         loadTexture(textureId, "./resources/character/char.png", GL_NEAREST);
+      |                                ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+exemplo_07.cpp: In function 'int main()':
+exemplo_07.cpp:287:30: warning: ISO C++ forbids converting a string constant to 'char*' [-Wwrite-strings]
+  287 |         loadTexture(charTid, "./resources/character/char.png", GL_NEAREST);
+      |                              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -1,0 +1,73 @@
+#include <GL/glew.h>
+
+class GameObject
+{
+    const float xi = -1.0f;
+    const float yi = -1.0f;
+
+    unsigned int tid;            // indicação do tileset utilizado
+    float width, height;         // dimensões do objeto
+    float tileWidth, tileHeight; // tamanho de um tile    
+    GLuint VAO;
+
+    GLuint genVAO()
+    {
+        float vertices[] = {
+            // positions             // texture coords
+            xi,         yi + height, 0.0f,      0.0f, // left
+            xi + width, yi,          tileWidth, tileHeight, // bottom
+            xi,         yi,          0.0f,      tileHeight, // right
+            xi + width, yi + height, tileWidth, 0.0f, // top
+        };
+
+        unsigned int indices[] = {
+            0, 1, 3, // first triangle
+            0, 1, 2	 // second triangle
+        };
+
+        unsigned int VBO, VAO, EBO;
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+        glGenBuffers(1, &EBO);
+
+        glBindVertexArray(VAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+        // position attribute
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+        glEnableVertexAttribArray(0);
+        // texture coord attribute
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+
+        return VAO;
+    }
+
+public:
+    int row, column, u, v;
+    float z;
+
+    GameObject(float width, float height, float tileWidth, float tileHeight, unsigned int tid)
+    {
+        this->width = width;
+        this->height = height;
+        this->tileWidth = tileWidth;
+        this->tileHeight = tileHeight;
+        this->tid = tid;
+        this->z = -1;
+
+        VAO = genVAO();
+    }
+        
+    float getWidth() { return this->width; }
+    float getHeight() { return this->height; }
+    float getTileHeight() { return this->tileHeight; }
+    float getTileWidth() { return this->tileWidth; }
+    GLuint getVAO() { return this->VAO; }
+    GLuint getTid() { return this->tid; }
+};
