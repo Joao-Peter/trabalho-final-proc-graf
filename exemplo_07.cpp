@@ -22,39 +22,50 @@
 
 using namespace std;
 
-int g_gl_width = 1280;
-int g_gl_height = 960;
+int g_gl_width = 640;
+int g_gl_height = 480;
 float xi = -1.0f;
 float xf = 1.0f;
 float yi = -1.0f;
 float yf = 1.0f;
 float w = xf - xi;
 float h = yf - yi;
-float mapTileWidth, mapTileHeight, tw2, th2;
 int tileSetCols = 9, tileSetRows = 9;
-float tileW, tileW2;
-float tileH, tileH2;
+float mapTileWidth, mapTileHeight, tw2, th2;
 int cx = 6, cy = 6;
+
+struct TileMapWithVAO
+{
+	TileMap *tileMap;
+	GLuint vao;
+};
 
 TilemapView *tview = new DiamondView();
 TileMap *tmap = NULL;
 
 GLFWwindow *g_window = NULL;
 
-TileMap *readMap(char *filename)
+TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 {
-	ifstream arq(filename);
+	ifstream arq(filename.c_str());
 	int w, h;
 	arq >> w >> h;
-	TileMap *tmap = new TileMap(w, h, 0);
+	TileMap *tmap = new TileMap(w, h, 0, tileSetCols, tileSetRows);
 	for (int r = 0; r < h; r++)
 	{
 		for (int c = 0; c < w; c++)
 		{
-			int tid;
-			arq >> tid;
-			cout << tid << " ";
-			tmap->setTile(c, h - r - 1, tid);
+			int tileId;
+			arq >> tileId;
+			cout << tileId << " ";
+			// é colidível se existe ! após o número do tile
+			bool collidable = false;
+			if (arq.peek() == '!')
+			{
+				collidable = true;
+				arq.get(); // descarta o caractere '!'
+			}
+			tmap->setTile(c, h - r - 1, tileId, collidable);
 		}
 		cout << endl;
 	}
@@ -62,7 +73,7 @@ TileMap *readMap(char *filename)
 	return tmap;
 }
 
-void loadTexture(unsigned int &texture, char *filename, GLint param = GL_LINEAR)
+void loadTexture(unsigned int &texture, const string filename, GLint param = GL_LINEAR)
 {
 	glGenTextures(1, &texture);
 	glBindTexture(GL_TEXTURE_2D, texture);
@@ -83,7 +94,7 @@ void loadTexture(unsigned int &texture, char *filename, GLint param = GL_LINEAR)
 
 	int width, height, nrChannels;
 
-	unsigned char *data = stbi_load(filename, &width, &height, &nrChannels, 0);
+	unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrChannels, 0);
 	if (data)
 	{
 		if (nrChannels == 4)
@@ -194,30 +205,33 @@ GLuint createShaderProgramme()
 	return shader_programme;
 }
 
-unsigned int getTileVAO()
-{
-	tmap = readMap("terrain1.tmap");
-	mapTileWidth = w / (float)tmap->getWidth();
+TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int tileSetCols, int tileSetRows)
+{	
+	float tileW2, tileH2;
+
+	TileMapWithVAO result;
+	result.tileMap = readMap(mapFile.c_str(), tileSetCols, tileSetRows);	
+	
+	mapTileWidth = w / (float)result.tileMap->getWidth();
 	mapTileHeight = mapTileWidth / 2.0f;
 	tw2 = mapTileHeight;
 	th2 = mapTileHeight / 2.0f;
-	tileW = 1.0f / (float)tileSetCols;
-	tileW2 = tileW / 2.0f;
-	tileH = 1.0f / (float)tileSetRows;
-	tileH2 = tileH / 2.0f;
+	tileW2 = result.tileMap->getTileW() / 2.0f;
+	tileH2 = result.tileMap->getTileH() / 2.0f;
 
-	GLuint tid;
-	loadTexture(tid, "terrain.png");
+	GLuint textureId;
+	loadTexture(textureId, tileSetFile);
 
-	tmap->setTid(tid);
-	
+	result.tileMap->setTid(textureId);
+
 	float vertices[] = {
-		// positions        // texture coords
-		xi,       yi + th2, 0.0f,   tileH2, // left
-		xi + tw2, yi,       tileW2, 0.0f, // bottom
-		xi + mapTileWidth,  yi + th2, tileW,  tileH2, // right
-		xi + tw2, yi + mapTileHeight,  tileW2, tileH, // top
+		// positions                           // texture coords
+		xi,                yi + th2,           0.0f, tileH2,  // left
+		xi + tw2,          yi,                 tileW2, 0.0f,  // bottom
+		xi + mapTileWidth, yi + th2,           result.tileMap->getTileW(), tileH2, // right
+		xi + tw2,          yi + mapTileHeight, tileW2, result.tileMap->getTileH(), // top
 	};
+
 	unsigned int indices[] = {
 		0, 1, 3, // first triangle
 		3, 1, 2	 // second triangle
@@ -242,14 +256,18 @@ unsigned int getTileVAO()
 	// texture coord attribute
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
 	glEnableVertexAttribArray(1);
+	// discard color
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
+	glEnableVertexAttribArray(2);
 
-	return VAO;
+	result.vao = VAO;
+	return result;
 }
 
-GameObject* getCharObject()
+GameObject *getCharObject()
 {
 	float tileHeight = (1.0f / 3.0f); //  8 colunas no tileset de personagens
-	float tileWidth = (1.0f / 8.0f); // 12 linhas no tileset de personagens
+	float tileWidth = (1.0f / 8.0f);  // 12 linhas no tileset de personagens
 
 	float objHeight = (16.0f * mapTileHeight) / 15.0f;
 	float objWidth = (11.0f * mapTileWidth) / 15.0f;
@@ -259,12 +277,46 @@ GameObject* getCharObject()
 
 	// float width, float height, float tileWidth, float tileHeight, unsigned int tid
 	return new GameObject(
-		objWidth, 
-		objHeight, 
-		tileWidth, 
-		tileHeight, 
-		textureId
-	);
+		objWidth,
+		objHeight,
+		tileWidth,
+		tileHeight,
+		textureId);
+}
+
+void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, TilemapView *tileView)
+{
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tileMap->getTileSet());
+
+	glBindVertexArray(tileVAO);
+	float x, y;
+	int r = 0, c = 0;
+	for (int r = 0; r < tileMap->getHeight(); r++)
+	{
+		for (int c = 0; c < tileMap->getWidth(); c++)
+		{
+			int t_id = (int)tileMap->getTile(c, r);
+
+			if (t_id == 255) continue;
+
+			int u = t_id % tileMap->getTileSetCols();
+			int v = t_id / tileMap->getTileSetCols();
+
+			tileView->computeDrawPosition(c, r, mapTileWidth, mapTileHeight, x, y);
+
+			glBindVertexArray(tileVAO);
+
+			glUniform1f(glGetUniformLocation(shader, "offsetx"), u * tileMap->getTileW());
+			glUniform1f(glGetUniformLocation(shader, "offsety"), v * tileMap->getTileH());
+			glUniform1f(glGetUniformLocation(shader, "tx"), x);
+			glUniform1f(glGetUniformLocation(shader, "ty"), y + 1.0);
+			glUniform1f(glGetUniformLocation(shader, "layer_z"), tileMap->getZ());
+			glUniform1f(glGetUniformLocation(shader, "weight"), (c == cx) && (r == cy) ? 0.5 : 0.0);
+			glUniform1i(glGetUniformLocation(shader, "sprite"), 0);
+			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		}
+	}
 }
 
 int main()
@@ -276,30 +328,38 @@ int main()
 	glEnable(GL_DEPTH_TEST); // enable depth-testing
 	glDepthFunc(GL_LESS);
 
-	unsigned int tileVAO = getTileVAO();
-	GameObject* charObject = getCharObject();
+	GLuint shader_programme = createShaderProgramme();
+	float previous = glfwGetTime();
+
+	// TileMapWithVAO tileMap = loadTileMap(
+	// 	"./maps/terrain1.tmap",
+	// 	"./resources/world/terrain.png",
+	// 	9, 9
+	// );
+
+	//TODO: Unificar texturas em um arquivo
+	TileMapWithVAO forestTileMap = loadTileMap(
+		"./maps/forest.tmap", 
+		"./resources/world/Forest.png",
+		3, 6
+	);
+
+	TileMapWithVAO roadTileMap = loadTileMap(
+		"./maps/road.tmap", 
+		"./resources/world/Terrain1.png",
+		3, 6
+	);
+
+	GameObject *charObject = getCharObject();
 	charObject->row = 6;
 	charObject->column = 6;
 	charObject->u = 4;
 	charObject->v = 0;
 
-	GLuint charTid;
-	loadTexture(charTid, "./resources/character/char.png", GL_NEAREST);
-
-	GLuint shader_programme = createShaderProgramme();
-	float previous = glfwGetTime();
-
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tmap->getTileSet());
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);	
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, charTid);
-	// glEnable(GL_DEPTH_TEST);
-
-	vector<int> colission = {
-		6, 8, 15, 20, 23, 24, 26, 35, 47, 53, 56, 59, 60, 62, 65, 69, 72, 74, 78, 79, 80
-	};
+	glBindTexture(GL_TEXTURE_2D, charObject->getTid());
 
 	while (!glfwWindowShouldClose(g_window))
 	{
@@ -309,48 +369,23 @@ int main()
 		// wipe the drawing surface clear
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		// glClear(GL_COLOR_BUFFER_BIT);
 
 		glViewport(0, 0, g_gl_width, g_gl_height);
 
-		glUseProgram(shader_programme);		
+		glUseProgram(shader_programme);
 
-		glBindVertexArray(tileVAO);
+		renderTileMap(shader_programme, forestTileMap.vao, forestTileMap.tileMap, tview);
+		renderTileMap(shader_programme, roadTileMap.vao, roadTileMap.tileMap, tview);
+
 		float x, y;
-		int r = 0, c = 0;
-		for (int r = 0; r < tmap->getHeight(); r++)
-		{
-			for (int c = 0; c < tmap->getWidth(); c++)
-			{
-				int t_id = (int)tmap->getTile(c, r);
-				int u = t_id % tileSetCols;
-				int v = t_id / tileSetCols;
-
-				tview->computeDrawPosition(c, r, mapTileWidth, mapTileHeight, x, y);
-
-				glBindVertexArray(tileVAO);
-
-				glUniform1f(glGetUniformLocation(shader_programme, "offsetx"), u * tileW);
-				glUniform1f(glGetUniformLocation(shader_programme, "offsety"), v * tileH);
-				glUniform1f(glGetUniformLocation(shader_programme, "tx"), x);
-				glUniform1f(glGetUniformLocation(shader_programme, "ty"), y + 1.0);
-				glUniform1f(glGetUniformLocation(shader_programme, "layer_z"), tmap->getZ());
-				glUniform1f(glGetUniformLocation(shader_programme, "weight"), (c == cx) && (r == cy) ? 0.5 : 0.0);
-				glUniform1i(glGetUniformLocation(shader_programme, "sprite"), 0);
-				glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-			}
-		}
-
 		glBindVertexArray(charObject->getVAO());
-
 		tview->computeDrawPosition(
-			charObject->column, 
-			charObject->row, 
-			mapTileWidth, 
-			mapTileHeight, 
-			x, 
-			y
-		);
+			charObject->column,
+			charObject->row,
+			mapTileWidth,
+			mapTileHeight,
+			x,
+			y);
 
 		float offsetX = charObject->u * charObject->getTileWidth();
 		float offsetY = charObject->v * charObject->getTileHeight();
@@ -375,15 +410,12 @@ int main()
 		const bool down = glfwGetKey(g_window, GLFW_KEY_S) == GLFW_PRESS || glfwGetKey(g_window, GLFW_KEY_DOWN) == GLFW_PRESS;
 		const bool right = glfwGetKey(g_window, GLFW_KEY_D) == GLFW_PRESS || glfwGetKey(g_window, GLFW_KEY_RIGHT) == GLFW_PRESS;
 
-
-		//6 8 15 20 23 24 26 35 47 53 56 59 60 62 65 69 72 74 78 79 80
-		
 		if ((current_seconds - previous) > 0.3)
 		{
 			previous = current_seconds;
 
 			current_seconds = glfwGetTime();
-			int direction = getDirectionFromKeys(up, left, down, right);			
+			int direction = getDirectionFromKeys(up, left, down, right);
 
 			if (direction > 0)
 			{
@@ -393,41 +425,51 @@ int main()
 				tview->computeTileWalking(
 					nextColumn,
 					nextRow,
-					direction
-				);
+					direction);
+
+				// Define a direção para a qual o personagem olha
+				if (direction == DIRECTION_NORTH)
+					charObject->u = 0;
+				else if (direction == DIRECTION_NORTHEAST)
+					charObject->u = 1;
+				else if (direction == DIRECTION_EAST)
+					charObject->u = 2;
+				else if (direction == DIRECTION_SOUTHEAST)
+					charObject->u = 3;
+				else if (direction == DIRECTION_SOUTH)
+					charObject->u = 4;
+				else if (direction == DIRECTION_SOUTHWEST)
+					charObject->u = 5;
+				else if (direction == DIRECTION_WEST)
+					charObject->u = 6;
+				else if (direction == DIRECTION_NORTHWEST)
+					charObject->u = 7;
 
 				int nextTile = nextRow * 9 + nextColumn;
-				
-				auto teste = find(colission.begin(), colission.end(), nextTile);
 
-				//Se valor encontrado, teve colisão
-				// if (teste != colission.end()) 
+				// auto teste = find(colission.begin(), colission.end(), nextTile);
+
+				// Se valor encontrado, teve colisão
+				// if (tmap->isCollidable(nextColumn, nextRow))
 				// {
-				// 	cout << "Cu" << endl << "Tile: " << nextTile << endl;
-				// 	continue; 				
+				// 	cout << "Colisão na tile: " << nextTile << endl;
+				// 	glfwSwapBuffers(g_window);
+				// 	continue;
 				// }
 
-				if (direction == DIRECTION_NORTH) charObject->u = 0;
-				else if (direction == DIRECTION_NORTHEAST) charObject->u = 1;
-				else if (direction == DIRECTION_EAST) charObject->u = 2;
-				else if (direction == DIRECTION_SOUTHEAST) charObject->u = 3;
-				else if (direction == DIRECTION_SOUTH) charObject->u = 4;
-				else if (direction == DIRECTION_SOUTHWEST) charObject->u = 5;
-				else if (direction == DIRECTION_WEST) charObject->u = 6;
-				else if (direction == DIRECTION_NORTHWEST) charObject->u = 7;
-
-				if (charObject->v < 2) charObject->v = 2;
-				else charObject->v = 0;
+				// Se não teve colisão, alterna entre os frames de caminhada (v = 0 e v = 2) para animar o personagem
+				if (charObject->v < 2)
+					charObject->v = 2;
+				else
+					charObject->v = 0;
 
 				charObject->column = nextColumn;
 				charObject->row = nextRow;
-
-				cout << "direction: " << direction << endl;
 			}
-			else 
+			else
 			{
 				charObject->v = 1;
-			}			
+			}
 		}
 
 		// put the stuff we've been drawing onto the display

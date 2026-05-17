@@ -63,6 +63,16 @@ public:
 
         VAO = genVAO();
     }
+
+    bool Collides(GameObject *otherObject)
+    {
+        return this->column == otherObject->column && this->row == otherObject->row;
+    }
+
+    bool Collides (int column, int row)
+    {
+        return this->column == column && this->row == row;
+    }
         
     float getWidth() { return this->width; }
     float getHeight() { return this->height; }

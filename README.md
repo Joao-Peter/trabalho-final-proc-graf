@@ -33,3 +33,7 @@ Se desejar, agradeça colegas, tutores ou materiais que ajudaram.
 
 Links ou materiais que foram úteis no desenvolvimento.
 - [Guia básico de Markdown no GitHub](https://docs.github.com/pt/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax)
+
+#### Texturas
+- [Tilesets isométricos](https://screamingbrainstudios.itch.io/isotilepack)
+- [Personagem](https://axulart.itch.io/small-8-direction-characters)

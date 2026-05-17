@@ -44,12 +44,10 @@ float dot (float *a, float *b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 }
 
-float * cross (float *a, float *b) {
-    float x = a[1] * b[2] - a[2] * b[1];
-    float y = a[2] * b[0] - a[0] * b[2];
-    float z = a[0] * b[1] - a[1] * b[0];
-    float v[] = {x, y, z};
-    return v;
+void cross (float *a, float *b, float *result) {
+    result[0] = a[1] * b[2] - a[2] * b[1];
+    result[1] = a[2] * b[0] - a[0] * b[2];
+    result[2] = a[0] * b[1] - a[1] * b[0];
 }
 
 

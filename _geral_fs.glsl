@@ -1,6 +1,7 @@
 #version 410
 
 in vec2 texture_coords;
+in vec4 discard_color;
 
 uniform sampler2D sprite;
 uniform float offsetx;
@@ -14,7 +15,7 @@ void main () {
     vec4 texel = mix (texture (sprite, 
         vec2(texture_coords.x + offsetx,
              texture_coords.y + offsety)), vec4(0,0,1,1), weight);
-    if(texel.a < 0.5) {
+    if(texel.a < 0.5, texel == discard_color) {
         discard;
     }
     frag_color = texel;
