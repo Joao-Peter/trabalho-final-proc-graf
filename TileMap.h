@@ -43,6 +43,12 @@ public:
     }
     
     bool isCollidable(int col, int row) {
+        std::cout << "col: " << col << std::endl;
+        std::cout << "row: " << row << std::endl;
+        // std::cout << "width: " << this->width << std::endl;
+        // std::cout << "result: " << col + row * this->width << std::endl;
+        // std::cout << col + row * this->width;
+        // return false;
         return this->collidable[col + row * this->width];
     }
     

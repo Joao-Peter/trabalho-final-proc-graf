@@ -22,8 +22,8 @@
 
 using namespace std;
 
-int g_gl_width = 640;
-int g_gl_height = 480;
+int g_gl_width = 980;
+int g_gl_height = 780;
 float xi = -1.0f;
 float xf = 1.0f;
 float yi = -1.0f;
@@ -41,7 +41,6 @@ struct TileMapWithVAO
 };
 
 TilemapView *tview = new DiamondView();
-TileMap *tmap = NULL;
 
 GLFWwindow *g_window = NULL;
 
@@ -312,7 +311,8 @@ void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, Tilema
 			glUniform1f(glGetUniformLocation(shader, "tx"), x);
 			glUniform1f(glGetUniformLocation(shader, "ty"), y + 1.0);
 			glUniform1f(glGetUniformLocation(shader, "layer_z"), tileMap->getZ());
-			glUniform1f(glGetUniformLocation(shader, "weight"), (c == cx) && (r == cy) ? 0.5 : 0.0);
+			// glUniform1f(glGetUniformLocation(shader, "weight"), (c == cx) && (r == cy) ? 0.5 : 0.0);
+			glUniform1f(glGetUniformLocation(shader, "weight"), 0);
 			glUniform1i(glGetUniformLocation(shader, "sprite"), 0);
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		}
@@ -331,33 +331,19 @@ int main()
 	GLuint shader_programme = createShaderProgramme();
 	float previous = glfwGetTime();
 
-	// TileMapWithVAO tileMap = loadTileMap(
-	// 	"./maps/terrain1.tmap",
-	// 	"./resources/world/terrain.png",
-	// 	9, 9
-	// );
-
-	//TODO: Unificar texturas em um arquivo
 	TileMapWithVAO forestTileMap = loadTileMap(
-		"./maps/forest.tmap", 
-		"./resources/world/Forest.png",
-		3, 6
-	);
-
-	TileMapWithVAO roadTileMap = loadTileMap(
-		"./maps/road.tmap", 
-		"./resources/world/Terrain1.png",
-		3, 6
-	);
+		"./maps/forest.tmap",
+		"./resources/world/WorldTileset.png",
+		6, 12);
 
 	GameObject *charObject = getCharObject();
-	charObject->row = 6;
-	charObject->column = 6;
+	charObject->row = 7;
+	charObject->column = 0;
 	charObject->u = 4;
 	charObject->v = 0;
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);	
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_2D, charObject->getTid());
 
@@ -375,7 +361,6 @@ int main()
 		glUseProgram(shader_programme);
 
 		renderTileMap(shader_programme, forestTileMap.vao, forestTileMap.tileMap, tview);
-		renderTileMap(shader_programme, roadTileMap.vao, roadTileMap.tileMap, tview);
 
 		float x, y;
 		glBindVertexArray(charObject->getVAO());
@@ -393,7 +378,7 @@ int main()
 		glUniform1f(glGetUniformLocation(shader_programme, "offsetx"), offsetX);
 		glUniform1f(glGetUniformLocation(shader_programme, "offsety"), offsetY);
 		glUniform1f(glGetUniformLocation(shader_programme, "tx"), x + (tw2 / 3.0f));
-		glUniform1f(glGetUniformLocation(shader_programme, "ty"), y + 1.0);
+		glUniform1f(glGetUniformLocation(shader_programme, "ty"), y + (tw2 / 3.0f) + 1.0);
 		glUniform1f(glGetUniformLocation(shader_programme, "layer_z"), charObject->z);
 		glUniform1f(glGetUniformLocation(shader_programme, "weight"), 0.0);
 		glUniform1i(glGetUniformLocation(shader_programme, "sprite"), 1);
@@ -429,35 +414,37 @@ int main()
 
 				// Define a direção para a qual o personagem olha
 				if (direction == DIRECTION_NORTH)
-					charObject->u = 0;
-				else if (direction == DIRECTION_NORTHEAST)
 					charObject->u = 1;
-				else if (direction == DIRECTION_EAST)
+				else if (direction == DIRECTION_NORTHEAST)
 					charObject->u = 2;
-				else if (direction == DIRECTION_SOUTHEAST)
+				else if (direction == DIRECTION_EAST)
 					charObject->u = 3;
-				else if (direction == DIRECTION_SOUTH)
+				else if (direction == DIRECTION_SOUTHEAST)
 					charObject->u = 4;
-				else if (direction == DIRECTION_SOUTHWEST)
+				else if (direction == DIRECTION_SOUTH)
 					charObject->u = 5;
-				else if (direction == DIRECTION_WEST)
+				else if (direction == DIRECTION_SOUTHWEST)
 					charObject->u = 6;
-				else if (direction == DIRECTION_NORTHWEST)
+				else if (direction == DIRECTION_WEST)
 					charObject->u = 7;
+				else if (direction == DIRECTION_NORTHWEST)
+					charObject->u = 0;
 
 				int nextTile = nextRow * 9 + nextColumn;
 
-				// auto teste = find(colission.begin(), colission.end(), nextTile);
+				auto nextTile2 = forestTileMap.tileMap->getTile(nextColumn, nextRow);
 
 				// Se valor encontrado, teve colisão
-				// if (tmap->isCollidable(nextColumn, nextRow))
-				// {
-				// 	cout << "Colisão na tile: " << nextTile << endl;
-				// 	glfwSwapBuffers(g_window);
-				// 	continue;
-				// }
+				if (nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight() || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))
+				// if (nextColumn < 0 || nextRow < 0)
+				{
+					cout << "Colisão na tile: " << nextTile << endl;
+					glfwSwapBuffers(g_window);
+					continue;
+					// }
 
-				// Se não teve colisão, alterna entre os frames de caminhada (v = 0 e v = 2) para animar o personagem
+					// Se não teve colisão, alterna entre os frames de caminhada (v = 0 e v = 2) para animar o personagem
+				}
 				if (charObject->v < 2)
 					charObject->v = 2;
 				else
@@ -478,6 +465,7 @@ int main()
 
 	// close GL context and any other GLFW resources
 	glfwTerminate();
-	delete tmap;
+	delete forestTileMap.tileMap;
+	delete charObject;
 	return 0;
 }
