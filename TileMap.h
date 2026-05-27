@@ -1,3 +1,8 @@
+#include <vector>
+#include "GameObject.h"
+
+using namespace std;
+
 class TileMap {
     float z;               // caso de eventual de vários tilemaps sobrepostos
     unsigned int tid;      // indicação do tileset utilizado
@@ -5,12 +10,14 @@ class TileMap {
     int tileSetCols, tileSetRows; // número de colunas e linhas do tileset utilizado
     unsigned char *map; // mapa com ids dos tiles que formam o cenário
     bool *collidable; // indica se o tilemap é colidível ou não    
+    vector<GameObject*> gameObjects; // objeto de jogo associado a este tilemap, se houver
     float tileH, tileW; // dimensões de um tile, calculadas a partir do número de colunas e linhas do tileset
     
 public:
     TileMap(int w, int h, unsigned char initWith, int tileSetCols, int tileSetRows) {
         this->map = new unsigned char [w*h];
         this->collidable = new bool [w*h];
+        this->gameObjects = vector<GameObject*>();
         this->width = w;
         this->height = h;
         this->z = 0.0f;
@@ -44,16 +51,43 @@ public:
     
     bool isCollidable(int col, int row) {
         std::cout << "col: " << col << std::endl;
-        std::cout << "row: " << row << std::endl;
-        // std::cout << "width: " << this->width << std::endl;
-        // std::cout << "result: " << col + row * this->width << std::endl;
-        // std::cout << col + row * this->width;
-        // return false;
+        std::cout << "row: " << row << std::endl;        
         return this->collidable[col + row * this->width];
     }
     
     void setCollidable(int col, int row, bool collidable) {
         this->collidable[col + row * this->width] = collidable;
+    }
+
+    void addObject(GameObject *object, int col, int row) {
+        object->column = col;
+        object->row = row;
+        object->u = 0;
+	    object->v = 0;        
+        this->gameObjects.push_back(object);
+    }
+
+    vector<GameObject*> getObjects() {
+        return this->gameObjects;
+    }
+
+    GameObject* checkIsObjectColliding(int col, int row) {
+        for (GameObject *object : this->gameObjects) {
+            if (object->Collides(col, row)) {
+                return object;
+            }
+        }
+        return nullptr;
+    }
+
+    bool removeObjectAt(int col, int row) {
+        for (auto it = this->gameObjects.begin(); it != this->gameObjects.end(); it++) {
+            if ((*it)->Collides(col, row)) {
+                this->gameObjects.erase(it);
+                return true;
+            }
+        }
+        return false;
     }
 
     int getTileSet() {

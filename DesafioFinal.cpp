@@ -16,7 +16,6 @@
 #include <algorithm>
 #include "TileMap.h"
 #include "DiamondView.h"
-#include "GameObject.h"
 #include "ltMath.h"
 #include <fstream>
 
@@ -44,33 +43,6 @@ TilemapView *tview = new DiamondView();
 
 GLFWwindow *g_window = NULL;
 
-TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
-{
-	ifstream arq(filename.c_str());
-	int w, h;
-	arq >> w >> h;
-	TileMap *tmap = new TileMap(w, h, 0, tileSetCols, tileSetRows);
-	for (int r = h - 1; r >= 0; r--)
-	{
-		for (int c = 0; c < w; c++)
-		{
-			int tileId;
-			arq >> tileId;
-			cout << tileId << " ";
-			// é colidível se existe ! após o número do tile
-			bool collidable = false;
-			if (arq.peek() == '!')
-			{
-				collidable = true;
-				arq.get(); // descarta o caractere '!'
-			}
-			tmap->setTile(c, h - r - 1, tileId, collidable);
-		}
-		cout << endl;
-	}
-	arq.close();
-	return tmap;
-}
 
 void loadTexture(unsigned int &texture, const string filename, GLint param = GL_LINEAR)
 {
@@ -78,8 +50,8 @@ void loadTexture(unsigned int &texture, const string filename, GLint param = GL_
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	GLint mipmap = param == GL_LINEAR
-					   ? GL_LINEAR_MIPMAP_LINEAR
-					   : GL_NEAREST_MIPMAP_LINEAR;
+		? GL_LINEAR_MIPMAP_LINEAR
+		: GL_NEAREST_MIPMAP_LINEAR;
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
@@ -104,6 +76,57 @@ void loadTexture(unsigned int &texture, const string filename, GLint param = GL_
 		std::cout << "Failed to load texture" << std::endl;
 	}
 	stbi_image_free(data);
+}
+
+
+GameObject *getHamburgerObject()
+{
+	GLuint textureId;
+	loadTexture(textureId, "./resources/hamburger.png", GL_NEAREST);
+
+	return new GameObject(
+		(mapTileWidth / 2.0f),
+		(mapTileHeight / 1.0f),
+		1.0f,
+		1.0f,
+		textureId);
+}
+
+TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
+{
+	ifstream arq(filename.c_str());
+	int fileW, fileH;
+	arq >> fileW >> fileH;	
+	TileMap *tmap = new TileMap(fileW, fileH, 0, tileSetCols, tileSetRows);
+	
+	mapTileWidth = w / (float)tmap->getWidth();
+	mapTileHeight = mapTileWidth / 2.0f;
+	
+	for (int r = fileH - 1; r >= 0; r--)
+	{
+		for (int c = 0; c < fileW; c++)
+		{
+			int tileId;
+			arq >> tileId;
+			cout << tileId << " ";
+			// é colidível se existe ! após o número do tile
+			bool collidable = false;
+			if (arq.peek() == '!')
+			{
+				collidable = true;
+				arq.get(); // descarta o caractere '!'
+			}
+			if (arq.peek() == 'H')
+			{
+				tmap->addObject(getHamburgerObject(), c, fileH - r - 1);
+				arq.get(); // descarta o caractere 'H'
+			}
+			tmap->setTile(c, fileH - r - 1, tileId, collidable);
+		}
+		cout << endl;
+	}
+	arq.close();
+	return tmap;
 }
 
 int getDirectionFromKeys(bool up, bool left, bool down, bool right)
@@ -201,9 +224,7 @@ TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int t
 
 	TileMapWithVAO result;
 	result.tileMap = readMap(mapFile.c_str(), tileSetCols, tileSetRows);
-
-	mapTileWidth = w / (float)result.tileMap->getWidth();
-	mapTileHeight = mapTileWidth / 2.0f;
+	
 	tw2 = mapTileHeight;
 	th2 = mapTileHeight / 2.0f;
 	tileW2 = result.tileMap->getTileW() / 2.0f;
@@ -245,7 +266,7 @@ TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int t
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
 	// texture coord attribute
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));	
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
 
 	result.vao = VAO;
 	return result;
@@ -269,20 +290,6 @@ GameObject *getCharObject()
 		tileWidth,
 		tileHeight,
 		textureId);
-}
-
-GameObject *getHamburgerObject()
-{	
-	GLuint textureId;
-	loadTexture(textureId, "./resources/hamburger.png", GL_NEAREST);
-
-	return new GameObject(
-		(mapTileWidth / 2.0f),
-		(mapTileHeight / 1.0f),
-		1.0f,
-		1.0f,
-		textureId
-	);
 }
 
 void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, TilemapView *tileView)
@@ -395,7 +402,11 @@ int main()
 		renderTileMap(shader_programme, forestTileMap.vao, forestTileMap.tileMap, tview);
 
 		drawObject(shader_programme, charObject);
-		drawObject(shader_programme, hamburger);
+		for (GameObject *object : forestTileMap.tileMap->getObjects())
+		{
+			drawObject(shader_programme, object);
+		}
+		// drawObject(shader_programme, hamburger);
 
 		glfwPollEvents();
 		if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_ESCAPE))
@@ -447,8 +458,12 @@ int main()
 
 				auto nextTile2 = forestTileMap.tileMap->getTile(nextColumn, nextRow);
 
+				auto outsideMapLimits = nextColumn < 0 
+					|| nextRow < 0 
+					|| nextColumn >= forestTileMap.tileMap->getWidth() 
+					|| nextRow >= forestTileMap.tileMap->getHeight();
 				// Se valor encontrado, teve colisão
-				if (nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight() || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))
+				if (outsideMapLimits || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))
 				// if (nextColumn < 0 || nextRow < 0)
 				{
 					cout << "Colisão na tile: " << nextTile << endl;
@@ -458,6 +473,15 @@ int main()
 
 					// Se não teve colisão, alterna entre os frames de caminhada (v = 0 e v = 2) para animar o personagem
 				}
+
+				auto object = forestTileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);
+
+				if (object)
+				{				
+					cout << "Colisão com objeto na tile: " << nextTile << endl;
+					forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);					
+				}
+
 				if (charObject->v < 2)
 					charObject->v = 2;
 				else
