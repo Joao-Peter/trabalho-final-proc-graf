@@ -50,7 +50,7 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 	int w, h;
 	arq >> w >> h;
 	TileMap *tmap = new TileMap(w, h, 0, tileSetCols, tileSetRows);
-	for (int r = 0; r < h; r++)
+	for (int r = h - 1; r >= 0; r--)
 	{
 		for (int c = 0; c < w; c++)
 		{
@@ -93,19 +93,10 @@ void loadTexture(unsigned int &texture, const string filename, GLint param = GL_
 
 	int width, height, nrChannels;
 
-	unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrChannels, 0);
+	unsigned char *data = stbi_load(filename.c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
 	if (data)
 	{
-		if (nrChannels == 4)
-		{
-			cout << "Alpha channel" << endl;
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-		}
-		else
-		{
-			cout << "Without Alpha channel" << endl;
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		}
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
 	}
 	else
@@ -205,12 +196,12 @@ GLuint createShaderProgramme()
 }
 
 TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int tileSetCols, int tileSetRows)
-{	
+{
 	float tileW2, tileH2;
 
 	TileMapWithVAO result;
-	result.tileMap = readMap(mapFile.c_str(), tileSetCols, tileSetRows);	
-	
+	result.tileMap = readMap(mapFile.c_str(), tileSetCols, tileSetRows);
+
 	mapTileWidth = w / (float)result.tileMap->getWidth();
 	mapTileHeight = mapTileWidth / 2.0f;
 	tw2 = mapTileHeight;
@@ -250,14 +241,11 @@ TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int t
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// position attribute
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
 	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
 	// texture coord attribute
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
 	glEnableVertexAttribArray(1);
-	// discard color
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
-	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));	
 
 	result.vao = VAO;
 	return result;
@@ -283,6 +271,20 @@ GameObject *getCharObject()
 		textureId);
 }
 
+GameObject *getHamburgerObject()
+{	
+	GLuint textureId;
+	loadTexture(textureId, "./resources/hamburger.png", GL_NEAREST);
+
+	return new GameObject(
+		(mapTileWidth / 2.0f),
+		(mapTileHeight / 1.0f),
+		1.0f,
+		1.0f,
+		textureId
+	);
+}
+
 void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, TilemapView *tileView)
 {
 	glActiveTexture(GL_TEXTURE0);
@@ -297,7 +299,8 @@ void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, Tilema
 		{
 			int t_id = (int)tileMap->getTile(c, r);
 
-			if (t_id == 255) continue;
+			if (t_id == 255)
+				continue;
 
 			int u = t_id % tileMap->getTileSetCols();
 			int v = t_id / tileMap->getTileSetCols();
@@ -317,6 +320,32 @@ void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, Tilema
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		}
 	}
+}
+
+void drawObject(GLuint shader, GameObject *object)
+{
+	float x, y;
+	glBindVertexArray(object->getVAO());
+	tview->computeDrawPosition(
+		object->column,
+		object->row,
+		mapTileWidth,
+		mapTileHeight,
+		x,
+		y);
+
+	float offsetX = object->u * object->getTileWidth();
+	float offsetY = object->v * object->getTileHeight();
+
+	glBindTexture(GL_TEXTURE_2D, object->getTid());
+	glUniform1f(glGetUniformLocation(shader, "offsetx"), offsetX);
+	glUniform1f(glGetUniformLocation(shader, "offsety"), offsetY);
+	glUniform1f(glGetUniformLocation(shader, "tx"), x + (tw2 / 3.0f));
+	glUniform1f(glGetUniformLocation(shader, "ty"), y + (tw2 / 3.0f) + 1.0);
+	glUniform1f(glGetUniformLocation(shader, "layer_z"), object->z);
+	glUniform1f(glGetUniformLocation(shader, "weight"), 0.0);
+	glUniform1i(glGetUniformLocation(shader, "sprite"), 0);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 }
 
 int main()
@@ -342,11 +371,14 @@ int main()
 	charObject->u = 4;
 	charObject->v = 0;
 
+	GameObject *hamburger = getHamburgerObject();
+	hamburger->row = 7;
+	hamburger->column = 14;
+	hamburger->u = 0;
+	hamburger->v = 0;
+
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, charObject->getTid());
-
 	while (!glfwWindowShouldClose(g_window))
 	{
 		_update_fps_counter(g_window);
@@ -362,27 +394,8 @@ int main()
 
 		renderTileMap(shader_programme, forestTileMap.vao, forestTileMap.tileMap, tview);
 
-		float x, y;
-		glBindVertexArray(charObject->getVAO());
-		tview->computeDrawPosition(
-			charObject->column,
-			charObject->row,
-			mapTileWidth,
-			mapTileHeight,
-			x,
-			y);
-
-		float offsetX = charObject->u * charObject->getTileWidth();
-		float offsetY = charObject->v * charObject->getTileHeight();
-
-		glUniform1f(glGetUniformLocation(shader_programme, "offsetx"), offsetX);
-		glUniform1f(glGetUniformLocation(shader_programme, "offsety"), offsetY);
-		glUniform1f(glGetUniformLocation(shader_programme, "tx"), x + (tw2 / 3.0f));
-		glUniform1f(glGetUniformLocation(shader_programme, "ty"), y + (tw2 / 3.0f) + 1.0);
-		glUniform1f(glGetUniformLocation(shader_programme, "layer_z"), charObject->z);
-		glUniform1f(glGetUniformLocation(shader_programme, "weight"), 0.0);
-		glUniform1i(glGetUniformLocation(shader_programme, "sprite"), 1);
-		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		drawObject(shader_programme, charObject);
+		drawObject(shader_programme, hamburger);
 
 		glfwPollEvents();
 		if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_ESCAPE))

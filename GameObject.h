@@ -7,7 +7,7 @@ class GameObject
 
     unsigned int tid;            // indicação do tileset utilizado
     float width, height;         // dimensões do objeto
-    float tileWidth, tileHeight; // tamanho de um tile    
+    float tileWidth, tileHeight; // tamanho de um tile     
     GLuint VAO;
 
     GLuint genVAO()
@@ -39,11 +39,11 @@ class GameObject
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
         // position attribute
-        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
         glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
         // texture coord attribute
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
         glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));        
 
         return VAO;
     }
