@@ -42,7 +42,7 @@ struct TileMapWithVAO
 TilemapView *tview = new DiamondView();
 
 GLFWwindow *g_window = NULL;
-
+GameObject *gameOverObject = nullptr;
 
 void loadTexture(unsigned int &texture, const string filename, GLint param = GL_LINEAR)
 {
@@ -50,8 +50,8 @@ void loadTexture(unsigned int &texture, const string filename, GLint param = GL_
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	GLint mipmap = param == GL_LINEAR
-		? GL_LINEAR_MIPMAP_LINEAR
-		: GL_NEAREST_MIPMAP_LINEAR;
+					   ? GL_LINEAR_MIPMAP_LINEAR
+					   : GL_NEAREST_MIPMAP_LINEAR;
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
@@ -78,30 +78,54 @@ void loadTexture(unsigned int &texture, const string filename, GLint param = GL_
 	stbi_image_free(data);
 }
 
-
 GameObject *getHamburgerObject()
 {
 	GLuint textureId;
 	loadTexture(textureId, "./resources/hamburger.png", GL_NEAREST);
 
-	return new GameObject(
+	auto object = new GameObject(
 		(mapTileWidth / 2.0f),
 		(mapTileHeight / 1.0f),
 		1.0f,
 		1.0f,
-		textureId);
+		textureId,
+		GRAB
+	);
+
+	object->z = -0.1f;
+
+	return object;
+}
+
+GameObject *getArrowObject()
+{
+	GLuint textureId;
+	loadTexture(textureId, "./resources/arrow.png", GL_NEAREST);
+
+	auto object = new GameObject(
+		(mapTileWidth / 2.0f),
+		(mapTileHeight / 1.0f),
+		1.0f,
+		1.0f,
+		textureId,
+		AVOID
+	);
+
+	object->z = -0.1f;
+
+	return object;		
 }
 
 TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 {
 	ifstream arq(filename.c_str());
 	int fileW, fileH;
-	arq >> fileW >> fileH;	
+	arq >> fileW >> fileH;
 	TileMap *tmap = new TileMap(fileW, fileH, 0, tileSetCols, tileSetRows);
-	
+
 	mapTileWidth = w / (float)tmap->getWidth();
 	mapTileHeight = mapTileWidth / 2.0f;
-	
+
 	for (int r = fileH - 1; r >= 0; r--)
 	{
 		for (int c = 0; c < fileW; c++)
@@ -120,6 +144,11 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			{
 				tmap->addObject(getHamburgerObject(), c, fileH - r - 1);
 				arq.get(); // descarta o caractere 'H'
+			}
+			if (arq.peek() == 'A')
+			{
+				tmap->addObject(getArrowObject(), c, fileH - r - 1);
+				arq.get(); // descarta o caractere 'A'
 			}
 			tmap->setTile(c, fileH - r - 1, tileId, collidable);
 		}
@@ -224,7 +253,7 @@ TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int t
 
 	TileMapWithVAO result;
 	result.tileMap = readMap(mapFile.c_str(), tileSetCols, tileSetRows);
-	
+
 	tw2 = mapTileHeight;
 	th2 = mapTileHeight / 2.0f;
 	tileW2 = result.tileMap->getTileW() / 2.0f;
@@ -237,10 +266,22 @@ TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int t
 
 	float vertices[] = {
 		// positions                           // texture coords
-		xi,                yi + th2,           0.0f, tileH2,  // left
-		xi + tw2,          yi,                 tileW2, 0.0f,  // bottom
-		xi + mapTileWidth, yi + th2,           result.tileMap->getTileW(), tileH2, // right
-		xi + tw2,          yi + mapTileHeight, tileW2, result.tileMap->getTileH(), // top
+		xi,
+		yi + th2,
+		0.0f,
+		tileH2, // left
+		xi + tw2,
+		yi,
+		tileW2,
+		0.0f, // bottom
+		xi + mapTileWidth,
+		yi + th2,
+		result.tileMap->getTileW(),
+		tileH2, // right
+		xi + tw2,
+		yi + mapTileHeight,
+		tileW2,
+		result.tileMap->getTileH(), // top
 	};
 
 	unsigned int indices[] = {
@@ -283,13 +324,18 @@ GameObject *getCharObject()
 	GLuint textureId;
 	loadTexture(textureId, "./resources/character/char.png", GL_NEAREST);
 
-	// float width, float height, float tileWidth, float tileHeight, unsigned int tid
-	return new GameObject(
+	auto object = new GameObject(
 		objWidth,
 		objHeight,
 		tileWidth,
 		tileHeight,
-		textureId);
+		textureId,
+		CHAR
+	);
+
+	object->z = -0.2f;
+	
+	return object;
 }
 
 void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, TilemapView *tileView)
@@ -333,13 +379,24 @@ void drawObject(GLuint shader, GameObject *object)
 {
 	float x, y;
 	glBindVertexArray(object->getVAO());
-	tview->computeDrawPosition(
-		object->column,
-		object->row,
-		mapTileWidth,
-		mapTileHeight,
-		x,
-		y);
+	if (object->row < 0 && object->column < 0)
+	{
+		x = 0.0f;
+		y = 0.0f;
+	}
+	else
+	{
+		tview->computeDrawPosition(
+			object->column,
+			object->row,
+			mapTileWidth,
+			mapTileHeight,
+			x,
+			y);
+
+		x += (tw2 / 3.0f);
+		y += (tw2 / 3.0f) + 1.0;
+	}
 
 	float offsetX = object->u * object->getTileWidth();
 	float offsetY = object->v * object->getTileHeight();
@@ -347,12 +404,31 @@ void drawObject(GLuint shader, GameObject *object)
 	glBindTexture(GL_TEXTURE_2D, object->getTid());
 	glUniform1f(glGetUniformLocation(shader, "offsetx"), offsetX);
 	glUniform1f(glGetUniformLocation(shader, "offsety"), offsetY);
-	glUniform1f(glGetUniformLocation(shader, "tx"), x + (tw2 / 3.0f));
-	glUniform1f(glGetUniformLocation(shader, "ty"), y + (tw2 / 3.0f) + 1.0);
+	glUniform1f(glGetUniformLocation(shader, "tx"), x);
+	glUniform1f(glGetUniformLocation(shader, "ty"), y);
 	glUniform1f(glGetUniformLocation(shader, "layer_z"), object->z);
 	glUniform1f(glGetUniformLocation(shader, "weight"), 0.0);
 	glUniform1i(glGetUniformLocation(shader, "sprite"), 0);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+
+GameObject *getGameOverObject()
+{
+	GLuint textureId;
+	loadTexture(textureId, "./resources/gameover.png", GL_NEAREST);
+
+	auto object = new GameObject(
+		2.0f,
+		2.0f,
+		1.0f,
+		1.0f,
+		textureId,
+		GRAB
+	);
+
+	object->z = -1.0f;
+
+	return object;
 }
 
 int main()
@@ -378,12 +454,6 @@ int main()
 	charObject->u = 4;
 	charObject->v = 0;
 
-	GameObject *hamburger = getHamburgerObject();
-	hamburger->row = 7;
-	hamburger->column = 14;
-	hamburger->u = 0;
-	hamburger->v = 0;
-
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	while (!glfwWindowShouldClose(g_window))
@@ -406,12 +476,22 @@ int main()
 		{
 			drawObject(shader_programme, object);
 		}
-		// drawObject(shader_programme, hamburger);
+
+		if (gameOverObject)
+		{
+			drawObject(shader_programme, gameOverObject);
+		}		
 
 		glfwPollEvents();
 		if (GLFW_PRESS == glfwGetKey(g_window, GLFW_KEY_ESCAPE))
 		{
 			glfwSetWindowShouldClose(g_window, 1);
+		}
+
+		if (gameOverObject)
+		{
+			glfwSwapBuffers(g_window);
+			continue;
 		}
 
 		const bool up = glfwGetKey(g_window, GLFW_KEY_W) == GLFW_PRESS || glfwGetKey(g_window, GLFW_KEY_UP) == GLFW_PRESS;
@@ -458,10 +538,7 @@ int main()
 
 				auto nextTile2 = forestTileMap.tileMap->getTile(nextColumn, nextRow);
 
-				auto outsideMapLimits = nextColumn < 0 
-					|| nextRow < 0 
-					|| nextColumn >= forestTileMap.tileMap->getWidth() 
-					|| nextRow >= forestTileMap.tileMap->getHeight();
+				auto outsideMapLimits = nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight();
 				// Se valor encontrado, teve colisão
 				if (outsideMapLimits || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))
 				// if (nextColumn < 0 || nextRow < 0)
@@ -477,9 +554,24 @@ int main()
 				auto object = forestTileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);
 
 				if (object)
-				{				
+				{
 					cout << "Colisão com objeto na tile: " << nextTile << endl;
-					forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);					
+
+					if (object->getType() == GRAB)
+					{
+						cout << "Pegou o hambúrguer!" << endl;
+						forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);
+					}
+					else if (object->getType() == AVOID)
+					{
+						cout << "Colidiu com a seta! Foi de spawn!" << endl;
+						gameOverObject = getGameOverObject();						
+
+						charObject->column = 0;
+						charObject->row = 7;
+						glfwSwapBuffers(g_window);
+						continue;
+					}
 				}
 
 				if (charObject->v < 2)

@@ -1,5 +1,12 @@
 #include <GL/glew.h>
 
+enum ObjectType
+{
+    AVOID,
+    GRAB,
+    CHAR
+};
+
 class GameObject
 {
     const float xi = -1.0f;
@@ -9,6 +16,7 @@ class GameObject
     float width, height;         // dimensões do objeto
     float tileWidth, tileHeight; // tamanho de um tile     
     GLuint VAO;
+    ObjectType type;
 
     GLuint genVAO()
     {
@@ -52,13 +60,18 @@ public:
     int row, column, u, v;
     float z;
 
-    GameObject(float width, float height, float tileWidth, float tileHeight, unsigned int tid)
+    GameObject(float width, float height, float tileWidth, float tileHeight, unsigned int tid, ObjectType type)
     {
         this->width = width;
         this->height = height;
         this->tileWidth = tileWidth;
         this->tileHeight = tileHeight;
+        this->type = type;
         this->tid = tid;
+        this->row = -1;
+        this->column = -1;
+        this->u = 0;
+        this->v = 0;
         this->z = -1;
 
         VAO = genVAO();
@@ -80,4 +93,5 @@ public:
     float getTileWidth() { return this->tileWidth; }
     GLuint getVAO() { return this->VAO; }
     GLuint getTid() { return this->tid; }
+    ObjectType getType() { return this->type; }
 };
