@@ -16,8 +16,10 @@
 #include <algorithm>
 #include "TileMap.h"
 #include "DiamondView.h"
+#include "MovingGameObject.h"
 #include "ltMath.h"
 #include <fstream>
+#include "DesafioFinal.h"
 
 using namespace std;
 
@@ -50,8 +52,8 @@ void loadTexture(unsigned int &texture, const string filename, GLint param = GL_
 	glBindTexture(GL_TEXTURE_2D, texture);
 
 	GLint mipmap = param == GL_LINEAR
-					   ? GL_LINEAR_MIPMAP_LINEAR
-					   : GL_NEAREST_MIPMAP_LINEAR;
+		? GL_LINEAR_MIPMAP_LINEAR
+		: GL_NEAREST_MIPMAP_LINEAR;
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
@@ -97,18 +99,38 @@ GameObject *getHamburgerObject()
 	return object;
 }
 
-GameObject *getArrowObject()
+GameObject *getArrowObject(unsigned int direction)
 {
 	GLuint textureId;
 	loadTexture(textureId, "./resources/arrow.png", GL_NEAREST);
 
-	auto object = new GameObject(
+	auto object = new MovingGameObject(
 		(mapTileWidth / 2.0f),
 		(mapTileHeight / 1.0f),
 		1.0f,
 		1.0f,
 		textureId,
-		AVOID
+		AVOID,
+		direction
+	);
+
+	object->z = -0.1f;
+
+	return object;		
+}
+
+GameObject *getLodgeObject()
+{
+	GLuint textureId;
+	loadTexture(textureId, "./resources/lodge2.png", GL_NEAREST);
+
+	auto object = new GameObject(
+		mapTileWidth * 2.0f,
+		mapTileHeight * 4.0f,
+		1.0f,
+		1.0f,
+		textureId,
+		GRAB
 	);
 
 	object->z = -0.1f;
@@ -147,9 +169,14 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			}
 			if (arq.peek() == 'A')
 			{
-				tmap->addObject(getArrowObject(), c, fileH - r - 1);
+				tmap->addObject(getArrowObject(c == 0 ? DIRECTION_WEST : DIRECTION_EAST), c, fileH - r - 1);
 				arq.get(); // descarta o caractere 'A'
 			}
+			if (arq.peek() == 'L')
+			{
+				tmap->addObject(getLodgeObject(), c, fileH - r - 1);
+				arq.get(); // descarta o caractere 'L'
+			}			
 			tmap->setTile(c, fileH - r - 1, tileId, collidable);
 		}
 		cout << endl;
@@ -239,8 +266,7 @@ GLuint createShaderProgramme()
 	if (GL_TRUE != params)
 	{
 		fprintf(stderr, "ERROR: could not link shader programme GL index %i\n",
-				shader_programme);
-		// 		print_programme_info_log( shader_programme );
+				shader_programme);		
 		return false;
 	}
 
@@ -266,22 +292,10 @@ TileMapWithVAO loadTileMap(const string mapFile, const string tileSetFile, int t
 
 	float vertices[] = {
 		// positions                           // texture coords
-		xi,
-		yi + th2,
-		0.0f,
-		tileH2, // left
-		xi + tw2,
-		yi,
-		tileW2,
-		0.0f, // bottom
-		xi + mapTileWidth,
-		yi + th2,
-		result.tileMap->getTileW(),
-		tileH2, // right
-		xi + tw2,
-		yi + mapTileHeight,
-		tileW2,
-		result.tileMap->getTileH(), // top
+		xi,                yi + th2,           0.0f,                       tileH2,                     // left
+		xi + tw2,          yi,                 tileW2,                     0.0f,                       // bottom
+		xi + mapTileWidth, yi + th2,           result.tileMap->getTileW(), tileH2,                     // right
+		xi + tw2,          yi + mapTileHeight, tileW2,                     result.tileMap->getTileH(), // top
 	};
 
 	unsigned int indices[] = {
@@ -393,9 +407,8 @@ void drawObject(GLuint shader, GameObject *object)
 			mapTileHeight,
 			x,
 			y);
-
-		x += (tw2 / 3.0f);
-		y += (tw2 / 3.0f) + 1.0;
+				
+		CenterObjectInTile(object, x, y);
 	}
 
 	float offsetX = object->u * object->getTileWidth();
@@ -410,6 +423,29 @@ void drawObject(GLuint shader, GameObject *object)
 	glUniform1f(glGetUniformLocation(shader, "weight"), 0.0);
 	glUniform1i(glGetUniformLocation(shader, "sprite"), 0);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+}
+
+void CenterObjectInTile(GameObject * object, float &x, float &y)
+{
+		if (object->getWidth() > mapTileWidth) 
+		{
+			x -= (object->getWidth()/2.0f) - tw2;
+		}
+		else 
+		{
+			x += (tw2 / 4.0f);
+		}
+
+		if (object->getHeight() > mapTileHeight) 
+		{			
+			y -= (object->getHeight()/4.0f) - th2;
+		}
+		else 
+		{
+			y += (th2 / 4.0f);
+		}
+
+		y += 1.0f;
 }
 
 GameObject *getGameOverObject()
@@ -475,11 +511,6 @@ int main()
 		for (GameObject *object : forestTileMap.tileMap->getObjects())
 		{
 			drawObject(shader_programme, object);
-		}
-
-		if (gameOverObject)
-		{
-			drawObject(shader_programme, gameOverObject);
 		}		
 
 		glfwPollEvents();
@@ -490,6 +521,7 @@ int main()
 
 		if (gameOverObject)
 		{
+			drawObject(shader_programme, gameOverObject);
 			glfwSwapBuffers(g_window);
 			continue;
 		}
@@ -504,6 +536,44 @@ int main()
 			previous = current_seconds;
 
 			current_seconds = glfwGetTime();
+
+			auto objects = forestTileMap.tileMap->getObjects();
+
+			for (GameObject *object : objects)
+			{
+				auto movingObject = dynamic_cast<MovingGameObject *>(object);
+				if (movingObject != nullptr)
+				{
+					int nextColumn = object->column;
+					int nextRow = object->row;
+					
+					if (nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight())
+					{
+						nextRow = 0;
+					}
+					else {
+						tview->computeTileWalking(
+							nextColumn,
+							nextRow,
+							movingObject->getDirection()
+						);
+					}
+
+					object->column = nextColumn;
+					object->row = nextRow;
+				}
+			}
+
+			auto collidingObject = forestTileMap.tileMap->checkIsObjectColliding(charObject->column, charObject->row);
+
+			if (collidingObject && collidingObject->getType() == AVOID)
+			{
+				cout << "Colidiu com a seta! Foi de spawn!" << endl;
+				gameOverObject = getGameOverObject();
+				glfwSwapBuffers(g_window);
+				continue;
+			}
+
 			int direction = getDirectionFromKeys(up, left, down, right);
 
 			if (direction > 0)
@@ -538,17 +608,12 @@ int main()
 
 				auto nextTile2 = forestTileMap.tileMap->getTile(nextColumn, nextRow);
 
-				auto outsideMapLimits = nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight();
-				// Se valor encontrado, teve colisão
-				if (outsideMapLimits || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))
-				// if (nextColumn < 0 || nextRow < 0)
+				auto outsideMapLimits = nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight();				
+				if (outsideMapLimits || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))				
 				{
 					cout << "Colisão na tile: " << nextTile << endl;
 					glfwSwapBuffers(g_window);
-					continue;
-					// }
-
-					// Se não teve colisão, alterna entre os frames de caminhada (v = 0 e v = 2) para animar o personagem
+					continue;										
 				}
 
 				auto object = forestTileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);
@@ -565,34 +630,38 @@ int main()
 					else if (object->getType() == AVOID)
 					{
 						cout << "Colidiu com a seta! Foi de spawn!" << endl;
-						gameOverObject = getGameOverObject();						
-
-						charObject->column = 0;
-						charObject->row = 7;
+						gameOverObject = getGameOverObject();
 						glfwSwapBuffers(g_window);
-						continue;
 					}
 				}
 
+				// Se não teve colisão, alterna entre os frames de caminhada (v = 0 e v = 2) para animar o personagem
 				if (charObject->v < 2)
 					charObject->v = 2;
 				else
-					charObject->v = 0;
+					charObject->v = 0;				
 
 				charObject->column = nextColumn;
-				charObject->row = nextRow;
+				charObject->row = nextRow;				
 			}
 			else
 			{
 				charObject->v = 1;
 			}
-		}
 
-		// put the stuff we've been drawing onto the display
+			collidingObject = forestTileMap.tileMap->checkIsObjectColliding(charObject->column, charObject->row);
+
+			if (collidingObject && collidingObject->getType() == AVOID)
+			{
+				cout << "Colidiu com a seta! Foi de spawn!" << endl;
+				gameOverObject = getGameOverObject();
+				glfwSwapBuffers(g_window);				
+			}
+		}
+		
 		glfwSwapBuffers(g_window);
 	}
-
-	// close GL context and any other GLFW resources
+	
 	glfwTerminate();
 	delete forestTileMap.tileMap;
 	delete charObject;

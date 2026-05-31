@@ -1,3 +1,4 @@
+#pragma once
 #include <GL/glew.h>
 
 enum ObjectType
@@ -14,7 +15,7 @@ class GameObject
 
     unsigned int tid;            // indicação do tileset utilizado
     float width, height;         // dimensões do objeto
-    float tileWidth, tileHeight; // tamanho de um tile     
+    float tileWidth, tileHeight; // tamanho de um tile        
     GLuint VAO;
     ObjectType type;
 
@@ -57,6 +58,7 @@ class GameObject
     }
 
 public:
+    virtual ~GameObject() = default;
     int row, column, u, v;
     float z;
 

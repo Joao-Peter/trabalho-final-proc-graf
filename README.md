@@ -37,3 +37,4 @@ Links ou materiais que foram úteis no desenvolvimento.
 #### Texturas
 - [Tilesets isométricos](https://screamingbrainstudios.itch.io/isotilepack)
 - [Personagem](https://axulart.itch.io/small-8-direction-characters)
+- [Casa](https://www.magnific.com/br/vetores-premium/casa-de-ilustracao-de-pixel-art-casa-pixelizada-ou-icone-de-casa-pixelado-para-o-jogo-de-pixel-art_80978297.htm#fromView=keyword&page=1&position=17&uuid=4c1a9d24-45ef-475b-b991-ad05f36e749c&query=Casa+pixel+art)
