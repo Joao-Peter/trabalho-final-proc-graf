@@ -172,6 +172,7 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			cout << tileId << " ";
 			// é colidível se existe ! após o número do tile
 			bool collidable = false;
+			bool breakable = false;
 			if (arq.peek() == '!')
 			{
 				collidable = true;
@@ -194,10 +195,10 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			}
 			if (arq.peek() == 'B')
 			{				
-				tmap->addBreakableObjectPosition(c, fileH - r - 1);
+				breakable = true;
 				arq.get(); // descarta o caractere 'B'
 			}
-			tmap->setTile(c, fileH - r - 1, tileId, collidable);
+			tmap->setTile(c, fileH - r - 1, tileId, collidable, breakable);
 		}
 		cout << endl;
 	}
@@ -385,7 +386,7 @@ void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, Tilema
 	{
 		for (int c = 0; c < tileMap->getWidth(); c++)
 		{
-			int t_id = (int)tileMap->getTile(c, r);
+			int t_id = (int)tileMap->getTile(c, r).id;
 
 			if (t_id == 255)
 				continue;
@@ -659,8 +660,14 @@ int main()
 				{
 					cout << "Colidiu com objeto quebrável na tile: " << nextTile << endl;
 					auto currentTile = forestTileMap.tileMap->getTile(charObject->column, charObject->row);
-					forestTileMap.tileMap->setTile(charObject->column, charObject->row, currentTile + 1, false, true);
-					forestTileMap.tileMap->removeBreakableObjectPosition(charObject->column, charObject->row);
+					forestTileMap.tileMap->setTile(
+						charObject->column, 
+						charObject->row, 
+						currentTile.id + 1, 
+						false, //Colisão
+						false, //Quebrável
+						true   //Gameover1
+					);
 				}
 
 				if (forestTileMap.tileMap->isGameOverTile(nextColumn, nextRow))
