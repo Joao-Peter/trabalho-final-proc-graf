@@ -23,6 +23,22 @@
 
 using namespace std;
 
+enum Objects
+{
+	CHARACTER = 0,
+	HAMBURGER = 1,
+	ARROW = 2,
+	LODGE = 3,
+	GAMEOVER = 4,
+	VICTORY = 5
+};;
+
+struct TileMapWithVAO
+{
+	TileMap *tileMap;
+	GLuint vao;
+};
+
 int g_gl_width = 980;
 int g_gl_height = 780;
 float xi = -1.0f;
@@ -34,17 +50,11 @@ float h = yf - yi;
 int tileSetCols = 9, tileSetRows = 9;
 float mapTileWidth, mapTileHeight, tw2, th2;
 int cx = 6, cy = 6;
-
-struct TileMapWithVAO
-{
-	TileMap *tileMap;
-	GLuint vao;
-};
-
+bool gotHamburger = false;
 TilemapView *tview = new DiamondView();
-
 GLFWwindow *g_window = NULL;
 GameObject *gameOverObject = nullptr;
+GameObject *victoryObject = nullptr;
 
 void loadTexture(unsigned int &texture, const string filename, GLint param = GL_LINEAR)
 {
@@ -86,12 +96,13 @@ GameObject *getHamburgerObject()
 	loadTexture(textureId, "./resources/hamburger.png", GL_NEAREST);
 
 	auto object = new GameObject(
+		Objects::HAMBURGER,
 		(mapTileWidth / 2.0f),
 		(mapTileHeight / 1.0f),
 		1.0f,
 		1.0f,
 		textureId,
-		GRAB
+		OBJECTIVE
 	);
 
 	object->z = -0.1f;
@@ -105,6 +116,7 @@ GameObject *getArrowObject(unsigned int direction)
 	loadTexture(textureId, "./resources/arrow.png", GL_NEAREST);
 
 	auto object = new MovingGameObject(
+		Objects::ARROW,
 		(mapTileWidth / 2.0f),
 		(mapTileHeight / 1.0f),
 		1.0f,
@@ -125,15 +137,17 @@ GameObject *getLodgeObject()
 	loadTexture(textureId, "./resources/lodge2.png", GL_NEAREST);
 
 	auto object = new GameObject(
+		Objects::LODGE,
 		mapTileWidth * 2.0f,
 		mapTileHeight * 4.0f,
 		1.0f,
 		1.0f,
 		textureId,
-		GRAB
+		OBJECTIVE
 	);
 
 	object->z = -0.1f;
+	object->setBlocked(true);
 
 	return object;		
 }
@@ -339,6 +353,7 @@ GameObject *getCharObject()
 	loadTexture(textureId, "./resources/character/char.png", GL_NEAREST);
 
 	auto object = new GameObject(
+		Objects::CHARACTER,
 		objWidth,
 		objHeight,
 		tileWidth,
@@ -448,23 +463,34 @@ void CenterObjectInTile(GameObject * object, float &x, float &y)
 		y += 1.0f;
 }
 
-GameObject *getGameOverObject()
+GameObject *getFullscreenObject(const int id, const string filename)
 {
 	GLuint textureId;
-	loadTexture(textureId, "./resources/gameover.png", GL_NEAREST);
+	loadTexture(textureId, filename, GL_NEAREST);
 
 	auto object = new GameObject(
+		id,
 		2.0f,
 		2.0f,
 		1.0f,
 		1.0f,
 		textureId,
-		GRAB
+		OBJECTIVE
 	);
 
 	object->z = -1.0f;
 
 	return object;
+}
+
+GameObject *getGameOverObject()
+{
+	return getFullscreenObject(Objects::GAMEOVER, "./resources/gameover.png");
+}
+
+GameObject *getVictoryObject()
+{
+	return getFullscreenObject(Objects::VICTORY, "./resources/victory.png");
 }
 
 int main()
@@ -522,6 +548,13 @@ int main()
 		if (gameOverObject)
 		{
 			drawObject(shader_programme, gameOverObject);
+			glfwSwapBuffers(g_window);
+			continue;
+		}
+
+		if (victoryObject)
+		{
+			drawObject(shader_programme, victoryObject);
 			glfwSwapBuffers(g_window);
 			continue;
 		}
@@ -622,16 +655,32 @@ int main()
 				{
 					cout << "Colisão com objeto na tile: " << nextTile << endl;
 
-					if (object->getType() == GRAB)
+					if (object->getType() == OBJECTIVE)
 					{
-						cout << "Pegou o hambúrguer!" << endl;
-						forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);
+						if (object->isBlocked()) 
+						{
+							glfwSwapBuffers(g_window);
+							continue;
+						}
+
+
+						if (object->getId() == Objects::HAMBURGER) 
+						{
+							gotHamburger = true;
+							forestTileMap.tileMap->getObjectById(Objects::LODGE)->setBlocked(false);
+							cout << "Pegou o hambúrguer! Cabana desbloqueada" << endl;
+							forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);
+						}
+						else if (object->getId() == Objects::LODGE && gotHamburger) 
+						{
+							cout << "Chegou na cabana com o hambúrguer! Você venceu!" << endl;
+							victoryObject = getVictoryObject();			
+						}
 					}
 					else if (object->getType() == AVOID)
 					{
 						cout << "Colidiu com a seta! Foi de spawn!" << endl;
-						gameOverObject = getGameOverObject();
-						glfwSwapBuffers(g_window);
+						gameOverObject = getGameOverObject();						
 					}
 				}
 
@@ -639,10 +688,10 @@ int main()
 				if (charObject->v < 2)
 					charObject->v = 2;
 				else
-					charObject->v = 0;				
+					charObject->v = 0;
 
 				charObject->column = nextColumn;
-				charObject->row = nextRow;				
+				charObject->row = nextRow;
 			}
 			else
 			{

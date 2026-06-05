@@ -71,6 +71,15 @@ public:
         return this->gameObjects;
     }
 
+    GameObject* getObjectById(int id) {
+        for (GameObject *object : this->gameObjects) {
+            if (object->getId() == id) {
+                return object;
+            }
+        }
+        return nullptr;
+    }
+
     GameObject* checkIsObjectColliding(int col, int row) {
         for (GameObject *object : this->gameObjects) {
             if (object->Collides(col, row)) {

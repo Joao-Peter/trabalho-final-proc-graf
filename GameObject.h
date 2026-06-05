@@ -4,7 +4,7 @@
 enum ObjectType
 {
     AVOID,
-    GRAB,
+    OBJECTIVE,
     CHAR
 };
 
@@ -13,11 +13,13 @@ class GameObject
     const float xi = -1.0f;
     const float yi = -1.0f;
 
+    int id;                      // identificação do objeto
     unsigned int tid;            // indicação do tileset utilizado
     float width, height;         // dimensões do objeto
     float tileWidth, tileHeight; // tamanho de um tile        
     GLuint VAO;
     ObjectType type;
+    bool blocked = false;
 
     GLuint genVAO()
     {
@@ -62,8 +64,9 @@ public:
     int row, column, u, v;
     float z;
 
-    GameObject(float width, float height, float tileWidth, float tileHeight, unsigned int tid, ObjectType type)
+    GameObject(int id, float width, float height, float tileWidth, float tileHeight, unsigned int tid, ObjectType type)
     {
+        this->id = id;
         this->width = width;
         this->height = height;
         this->tileWidth = tileWidth;
@@ -87,8 +90,9 @@ public:
     bool Collides (int column, int row)
     {
         return this->column == column && this->row == row;
-    }
-        
+    }    
+    
+    int getId() { return this->id; }
     float getWidth() { return this->width; }
     float getHeight() { return this->height; }
     float getTileHeight() { return this->tileHeight; }
@@ -96,4 +100,7 @@ public:
     GLuint getVAO() { return this->VAO; }
     GLuint getTid() { return this->tid; }
     ObjectType getType() { return this->type; }
+    bool isBlocked() { return this->blocked; }
+
+    void setBlocked(bool blocked) { this->blocked = blocked; }
 };

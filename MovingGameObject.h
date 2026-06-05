@@ -8,13 +8,14 @@ private:
 
 public:    
     MovingGameObject(
+        int id,
         float width, 
         float height, 
         float tileWidth, 
         float tileHeight, 
         unsigned int tid, 
         ObjectType type,
-        unsigned int direction) : GameObject(width, height, tileWidth, tileHeight, tid, type)
+        unsigned int direction) : GameObject(id, width, height, tileWidth, tileHeight, tid, type)
     {
         this->direction = direction;
     }
