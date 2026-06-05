@@ -29,8 +29,9 @@ enum Objects
 	HAMBURGER = 1,
 	ARROW = 2,
 	LODGE = 3,
-	GAMEOVER = 4,
-	VICTORY = 5
+	BREAKABLE = 4,
+	GAMEOVER = 5,
+	VICTORY = 6
 };;
 
 struct TileMapWithVAO
@@ -190,7 +191,12 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			{
 				tmap->addObject(getLodgeObject(), c, fileH - r - 1);
 				arq.get(); // descarta o caractere 'L'
-			}			
+			}
+			if (arq.peek() == 'B')
+			{				
+				tmap->addBreakableObjectPosition(c, fileH - r - 1);
+				arq.get(); // descarta o caractere 'B'
+			}
 			tmap->setTile(c, fileH - r - 1, tileId, collidable);
 		}
 		cout << endl;
@@ -647,6 +653,20 @@ int main()
 					cout << "Colisão na tile: " << nextTile << endl;
 					glfwSwapBuffers(g_window);
 					continue;										
+				}
+
+				if (forestTileMap.tileMap->isBreakableObjectAt(charObject->column, charObject->row))
+				{
+					cout << "Colidiu com objeto quebrável na tile: " << nextTile << endl;
+					auto currentTile = forestTileMap.tileMap->getTile(charObject->column, charObject->row);
+					forestTileMap.tileMap->setTile(charObject->column, charObject->row, currentTile + 1, false, true);
+					forestTileMap.tileMap->removeBreakableObjectPosition(charObject->column, charObject->row);
+				}
+
+				if (forestTileMap.tileMap->isGameOverTile(nextColumn, nextRow))
+				{
+					cout << "Colidiu com tile de game over: " << nextTile << endl;
+					gameOverObject = getGameOverObject();					
 				}
 
 				auto object = forestTileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);

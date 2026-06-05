@@ -10,14 +10,18 @@ class TileMap {
     int tileSetCols, tileSetRows; // número de colunas e linhas do tileset utilizado
     unsigned char *map; // mapa com ids dos tiles que formam o cenário
     bool *collidable; // indica se o tilemap é colidível ou não    
+    bool *gameOverTiles;
     vector<GameObject*> gameObjects; // objeto de jogo associado a este tilemap, se houver
     float tileH, tileW; // dimensões de um tile, calculadas a partir do número de colunas e linhas do tileset
+    vector<pair<int, int>> breakableObjectsPositions; // posições dos objetos quebráveis no mapa
     
 public:
     TileMap(int w, int h, unsigned char initWith, int tileSetCols, int tileSetRows) {
         this->map = new unsigned char [w*h];
         this->collidable = new bool [w*h];
+        this->gameOverTiles = new bool [w*h];
         this->gameObjects = vector<GameObject*>();
+        this->breakableObjectsPositions = vector<pair<int, int>>();
         this->width = w;
         this->height = h;
         this->z = 0.0f;
@@ -44,19 +48,26 @@ public:
         return this->map[col + row * this->width];
     }
     
-    void setTile(int col, int row, unsigned char tile, bool collidable = false) {
+    void setTile(int col, int row, unsigned char tile, bool collidable = false, bool gameOver = false) {
         this->map[col + row * this->width] = tile;
         this->collidable[col + row * this->width] = collidable;
+        this->gameOverTiles[col + row * this->width] = gameOver;
     }
     
-    bool isCollidable(int col, int row) {
-        std::cout << "col: " << col << std::endl;
-        std::cout << "row: " << row << std::endl;
+    bool isCollidable(int col, int row) {        
         return this->collidable[col + row * this->width];
     }
     
     void setCollidable(int col, int row, bool collidable) {
         this->collidable[col + row * this->width] = collidable;
+    }
+
+    bool isGameOverTile(int col, int row) {
+        return this->gameOverTiles[col + row * this->width];
+    }
+
+    void setGameOverTile(int col, int row, bool gameOver) {
+        this->gameOverTiles[col + row * this->width] = gameOver;
     }
 
     void addObject(GameObject *object, int col, int row) {
@@ -93,6 +104,30 @@ public:
         for (auto it = this->gameObjects.begin(); it != this->gameObjects.end(); it++) {
             if ((*it)->Collides(col, row)) {
                 this->gameObjects.erase(it);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void addBreakableObjectPosition(int col, int row) {
+        this->breakableObjectsPositions.push_back(make_pair(col, row));
+    }
+
+    void removeBreakableObjectPosition(int col, int row) {
+        this->breakableObjectsPositions.erase(
+            remove_if(
+                this->breakableObjectsPositions.begin(), 
+                this->breakableObjectsPositions.end(),
+                [col, row](const pair<int, int>& pos) { return pos.first == col && pos.second == row; }
+            ),
+            this->breakableObjectsPositions.end()
+        );
+    }
+
+    bool isBreakableObjectAt(int col, int row) {
+        for (auto &pos : this->breakableObjectsPositions) {
+            if (pos.first == col && pos.second == row) {
                 return true;
             }
         }
