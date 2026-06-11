@@ -27,7 +27,7 @@ enum Objects
 {
 	CHARACTER = 0,
 	HAMBURGER = 1,
-	ARROW = 2,
+	ORB = 2,
 	LODGE = 3,
 	BREAKABLE = 4,
 	GAMEOVER = 5,
@@ -111,13 +111,13 @@ GameObject *getHamburgerObject()
 	return object;
 }
 
-GameObject *getArrowObject(unsigned int direction)
+GameObject *getAOrbObject(unsigned int direction)
 {
 	GLuint textureId;
-	loadTexture(textureId, "./resources/arrow.png", GL_NEAREST);
+	loadTexture(textureId, "./resources/orb.png", GL_NEAREST);
 
 	auto object = new MovingGameObject(
-		Objects::ARROW,
+		Objects::ORB,
 		(mapTileWidth / 2.0f),
 		(mapTileHeight / 1.0f),
 		1.0f,
@@ -185,7 +185,7 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			}
 			if (arq.peek() == 'A')
 			{
-				tmap->addObject(getArrowObject(c == 0 ? DIRECTION_WEST : DIRECTION_EAST), c, fileH - r - 1);
+				tmap->addObject(getAOrbObject(c == 0 ? DIRECTION_WEST : DIRECTION_EAST), c, fileH - r - 1);
 				arq.get(); // descarta o caractere 'A'
 			}
 			if (arq.peek() == 'L')
@@ -246,8 +246,8 @@ GLuint createShaderProgramme()
 {
 	char vertex_shader[1024 * 256];
 	char fragment_shader[1024 * 256];
-	parse_file_into_str("_geral_vs.glsl", vertex_shader, 1024 * 256);
-	parse_file_into_str("_geral_fs.glsl", fragment_shader, 1024 * 256);
+	parse_file_into_str("vertex_shader.glsl", vertex_shader, 1024 * 256);
+	parse_file_into_str("fragment_shader.glsl", fragment_shader, 1024 * 256);
 
 	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
 	const GLchar *p = (const GLchar *)vertex_shader;
@@ -665,8 +665,8 @@ int main()
 						charObject->row, 
 						currentTile.id + 1, 
 						false, //Colisão
-						false, //Quebrável
-						true   //Gameover1
+						true, //Quebrável
+						false   //Gameover
 					);
 				}
 
@@ -698,16 +698,16 @@ int main()
 							cout << "Pegou o hambúrguer! Cabana desbloqueada" << endl;
 							forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);
 						}
-						else if (object->getId() == Objects::LODGE && gotHamburger) 
+						else if (object->getId() == Objects::LODGE && gotHamburger)
 						{
 							cout << "Chegou na cabana com o hambúrguer! Você venceu!" << endl;
-							victoryObject = getVictoryObject();			
+							victoryObject = getVictoryObject();
 						}
 					}
 					else if (object->getType() == AVOID)
 					{
 						cout << "Colidiu com a seta! Foi de spawn!" << endl;
-						gameOverObject = getGameOverObject();						
+						gameOverObject = getGameOverObject();				
 					}
 				}
 
@@ -731,7 +731,7 @@ int main()
 			{
 				cout << "Colidiu com a seta! Foi de spawn!" << endl;
 				gameOverObject = getGameOverObject();
-				glfwSwapBuffers(g_window);				
+				glfwSwapBuffers(g_window);		
 			}
 		}
 		
