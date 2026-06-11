@@ -32,7 +32,7 @@ enum Objects
 	BREAKABLE = 4,
 	GAMEOVER = 5,
 	VICTORY = 6
-};;
+};
 
 struct TileMapWithVAO
 {
@@ -135,7 +135,7 @@ GameObject *getOrbObject(unsigned int direction)
 GameObject *getLodgeObject()
 {
 	GLuint textureId;
-	loadTexture(textureId, "./resources/lodge2.png", GL_NEAREST);
+	loadTexture(textureId, "./resources/lodge.png", GL_NEAREST);
 
 	auto object = new GameObject(
 		Objects::LODGE,
@@ -150,7 +150,7 @@ GameObject *getLodgeObject()
 	object->z = -0.1f;
 	object->setBlocked(true);
 
-	return object;		
+	return object;
 }
 
 TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
@@ -173,6 +173,7 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			// é colidível se existe ! após o número do tile
 			bool collidable = false;
 			bool breakable = false;
+			bool victory = false;
 			if (arq.peek() == '!')
 			{
 				collidable = true;
@@ -193,12 +194,17 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 				tmap->addObject(getLodgeObject(), c, fileH - r - 1);
 				arq.get(); // descarta o caractere 'L'
 			}
+			if (arq.peek() == 'V')
+			{
+				victory = true;
+				arq.get(); // descarta o caractere 'V'
+			}
 			if (arq.peek() == 'B')
-			{				
+			{
 				breakable = true;
 				arq.get(); // descarta o caractere 'B'
 			}
-			tmap->setTile(c, fileH - r - 1, tileId, collidable, breakable);
+			tmap->setTile(c, fileH - r - 1, tileId, collidable, breakable, false, victory);
 		}
 		cout << endl;
 	}
@@ -261,21 +267,20 @@ GLuint createShaderProgramme()
 	{
 		fprintf(stderr, "ERROR: GL shader index %i did not compile\n", vs);
 		print_shader_info_log(vs);
-		return 1; // or exit or something
+		return 1;
 	}
 
 	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
 	p = (const GLchar *)fragment_shader;
 	glShaderSource(fs, 1, &p, NULL);
 	glCompileShader(fs);
-
-	// check for compile errors
+	
 	glGetShaderiv(fs, GL_COMPILE_STATUS, &params);
 	if (GL_TRUE != params)
 	{
 		fprintf(stderr, "ERROR: GL shader index %i did not compile\n", fs);
 		print_shader_info_log(fs);
-		return 1; // or exit or something
+		return 1;
 	}
 
 	GLuint shader_programme = glCreateProgram();
@@ -287,8 +292,8 @@ GLuint createShaderProgramme()
 	if (GL_TRUE != params)
 	{
 		fprintf(stderr, "ERROR: could not link shader programme GL index %i\n",
-				shader_programme);		
-		return false;
+				shader_programme);
+		return 1;
 	}
 
 	return shader_programme;
@@ -403,7 +408,6 @@ void renderTileMap(GLuint shader, unsigned int tileVAO, TileMap *tileMap, Tilema
 			glUniform1f(glGetUniformLocation(shader, "tx"), x);
 			glUniform1f(glGetUniformLocation(shader, "ty"), y + 1.0);
 			glUniform1f(glGetUniformLocation(shader, "layer_z"), tileMap->getZ());
-			// glUniform1f(glGetUniformLocation(shader, "weight"), (c == cx) && (r == cy) ? 0.5 : 0.0);
 			glUniform1f(glGetUniformLocation(shader, "weight"), 0);
 			glUniform1i(glGetUniformLocation(shader, "sprite"), 0);
 			glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
@@ -429,7 +433,7 @@ void drawObject(GLuint shader, GameObject *object)
 			mapTileHeight,
 			x,
 			y);
-				
+
 		CenterObjectInTile(object, x, y);
 	}
 
@@ -449,7 +453,7 @@ void drawObject(GLuint shader, GameObject *object)
 
 void CenterObjectInTile(GameObject * object, float &x, float &y)
 {
-		if (object->getWidth() > mapTileWidth) 
+		if (object->getWidth() > mapTileWidth)
 		{
 			x -= (object->getWidth()/2.0f) - tw2;
 		}
@@ -502,11 +506,9 @@ GameObject *getVictoryObject()
 
 int main()
 {
-	restart_gl_log();
-	// all the GLFW and GLEW start-up code is moved to here in gl_utils.cpp
-	start_gl();
-	// tell GL to only draw onto a pixel if the shape is closer to the viewer
-	glEnable(GL_DEPTH_TEST); // enable depth-testing
+	restart_gl_log();	
+	start_gl();	
+	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 
 	GLuint shader_programme = createShaderProgramme();
@@ -530,7 +532,6 @@ int main()
 		_update_fps_counter(g_window);
 		double current_seconds = glfwGetTime();
 
-		// wipe the drawing surface clear
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -665,8 +666,9 @@ int main()
 						charObject->row, 
 						currentTile.id + 1, 
 						false, //Colisão
-						true, //Quebrável
-						false   //Gameover
+						true,  //Quebrável
+						false, //Gameover
+						false  //Vitória
 					);
 				}
 
@@ -674,6 +676,19 @@ int main()
 				{
 					cout << "Colidiu com tile de game over: " << nextTile << endl;
 					gameOverObject = getGameOverObject();					
+				}
+
+				if (forestTileMap.tileMap->isVictoryTile(nextColumn, nextRow))
+				{
+					cout << "Colidiu com tile de vitória: " << nextTile << endl;
+					
+					if (gotHamburger)
+					{
+						victoryObject = getVictoryObject();						
+					}
+					
+					glfwSwapBuffers(g_window);
+					continue;
 				}
 
 				auto object = forestTileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);
@@ -690,7 +705,6 @@ int main()
 							continue;
 						}
 
-
 						if (object->getId() == Objects::HAMBURGER) 
 						{
 							gotHamburger = true;
@@ -706,8 +720,8 @@ int main()
 					}
 					else if (object->getType() == AVOID)
 					{
-						cout << "Colidiu com a seta! Foi de spawn!" << endl;
-						gameOverObject = getGameOverObject();				
+						cout << "Colidiu com o orbe!" << endl;
+						gameOverObject = getGameOverObject();
 					}
 				}
 

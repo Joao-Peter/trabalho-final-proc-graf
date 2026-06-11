@@ -1,9 +1,0 @@
-- Planejar mecânicas
-    ideia: jogador deve pegar comidas no mapa e evitar obstáculos
-- Colocar personagem no mapa
-- Animar personagem
-- Criar cenário
-- Planejar obstáculos
-    - locais e/ou inimigos que matam o personagem
-    - locais impossívels de andar (personagem colide)
-- Colocar itens que o jogador possa pegar
