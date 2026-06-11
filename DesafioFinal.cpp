@@ -111,7 +111,7 @@ GameObject *getHamburgerObject()
 	return object;
 }
 
-GameObject *getAOrbObject(unsigned int direction)
+GameObject *getOrbObject(unsigned int direction)
 {
 	GLuint textureId;
 	loadTexture(textureId, "./resources/orb.png", GL_NEAREST);
@@ -185,7 +185,7 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			}
 			if (arq.peek() == 'A')
 			{
-				tmap->addObject(getAOrbObject(c == 0 ? DIRECTION_WEST : DIRECTION_EAST), c, fileH - r - 1);
+				tmap->addObject(getOrbObject(c == 0 ? DIRECTION_WEST : DIRECTION_EAST), c, fileH - r - 1);
 				arq.get(); // descarta o caractere 'A'
 			}
 			if (arq.peek() == 'L')
