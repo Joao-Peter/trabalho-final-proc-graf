@@ -577,8 +577,8 @@ int main()
 	float previous = glfwGetTime();
 
 	// Carrega o mapa principal e o tileset do mundo.
-	TileMapWithVAO forestTileMap = loadTileMap(
-		"./maps/forest.tmap",
+	TileMapWithVAO tileMap = loadTileMap(
+		"./maps/tileMapConfig.tmap",
 		"./resources/world/WorldTileset.png",
 		6, 12);
 
@@ -607,10 +607,10 @@ int main()
 		glUseProgram(shader_programme);
 
 		// Desenha primeiro o mapa e depois os objetos, respeitando a profundidade definida em z.
-		renderTileMap(shader_programme, forestTileMap.vao, forestTileMap.tileMap, tview);
+		renderTileMap(shader_programme, tileMap.vao, tileMap.tileMap, tview);
 
 		drawObject(shader_programme, charObject);
-		for (GameObject *object : forestTileMap.tileMap->getObjects())
+		for (GameObject *object : tileMap.tileMap->getObjects())
 		{
 			drawObject(shader_programme, object);
 		}		
@@ -649,7 +649,7 @@ int main()
 
 			current_seconds = glfwGetTime();
 
-			auto objects = forestTileMap.tileMap->getObjects();
+			auto objects = tileMap.tileMap->getObjects();
 
 			// Atualiza todos os objetos móveis, como os orbes inimigos.
 			for (GameObject *object : objects)
@@ -661,7 +661,7 @@ int main()
 					int nextRow = object->row;
 					
 					// Caso o objeto saia do mapa, reposiciona sua linha para evitar acesso inválido.
-					if (nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight())
+					if (nextColumn < 0 || nextRow < 0 || nextColumn >= tileMap.tileMap->getWidth() || nextRow >= tileMap.tileMap->getHeight())
 					{
 						nextRow = 0;
 					}
@@ -678,7 +678,7 @@ int main()
 				}
 			}
 
-			auto collidingObject = forestTileMap.tileMap->checkIsObjectColliding(charObject->column, charObject->row);
+			auto collidingObject = tileMap.tileMap->checkIsObjectColliding(charObject->column, charObject->row);
 
 			// Verifica se um inimigo móvel entrou na posição atual do jogador.
 			if (collidingObject && collidingObject->getType() == AVOID)
@@ -722,11 +722,11 @@ int main()
 
 				int nextTile = nextRow * 9 + nextColumn;
 
-				auto nextTile2 = forestTileMap.tileMap->getTile(nextColumn, nextRow);
+				auto nextTile2 = tileMap.tileMap->getTile(nextColumn, nextRow);
 
 				// Bloqueia movimento para fora do mapa ou para tiles marcados como colidíveis.
-				auto outsideMapLimits = nextColumn < 0 || nextRow < 0 || nextColumn >= forestTileMap.tileMap->getWidth() || nextRow >= forestTileMap.tileMap->getHeight();				
-				if (outsideMapLimits || forestTileMap.tileMap->isCollidable(nextColumn, nextRow))				
+				auto outsideMapLimits = nextColumn < 0 || nextRow < 0 || nextColumn >= tileMap.tileMap->getWidth() || nextRow >= tileMap.tileMap->getHeight();				
+				if (outsideMapLimits || tileMap.tileMap->isCollidable(nextColumn, nextRow))				
 				{
 					cout << "Colisão na tile: " << nextTile << endl;
 					glfwSwapBuffers(g_window);
@@ -734,11 +734,11 @@ int main()
 				}
 
 				// Tiles quebráveis mudam de id depois que o personagem passa por eles.
-				if (forestTileMap.tileMap->isBreakableObjectAt(charObject->column, charObject->row))
+				if (tileMap.tileMap->isBreakableObjectAt(charObject->column, charObject->row))
 				{
 					cout << "Colidiu com objeto quebrável na tile: " << nextTile << endl;
-					auto currentTile = forestTileMap.tileMap->getTile(charObject->column, charObject->row);
-					forestTileMap.tileMap->setTile(
+					auto currentTile = tileMap.tileMap->getTile(charObject->column, charObject->row);
+					tileMap.tileMap->setTile(
 						charObject->column, 
 						charObject->row, 
 						currentTile.id + 1, 
@@ -750,14 +750,14 @@ int main()
 				}
 
 				// Alguns tiles encerram a partida imediatamente com derrota.
-				if (forestTileMap.tileMap->isGameOverTile(nextColumn, nextRow))
+				if (tileMap.tileMap->isGameOverTile(nextColumn, nextRow))
 				{
 					cout << "Colidiu com tile de game over: " << nextTile << endl;
 					gameOverObject = getGameOverObject();					
 				}
 
 				// A vitória por tile só vale depois que o jogador coletou o hambúrguer.
-				if (forestTileMap.tileMap->isVictoryTile(nextColumn, nextRow))
+				if (tileMap.tileMap->isVictoryTile(nextColumn, nextRow))
 				{
 					cout << "Colidiu com tile de vitória: " << nextTile << endl;
 					
@@ -770,7 +770,7 @@ int main()
 					continue;
 				}
 
-				auto object = forestTileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);
+				auto object = tileMap.tileMap->checkIsObjectColliding(nextColumn, nextRow);
 
 				// Trata colisões com objetos colocados sobre tiles: objetivos, bloqueios e inimigos.
 				if (object)
@@ -790,9 +790,9 @@ int main()
 						{
 							// Ao coletar o hambúrguer, a cabana deixa de bloquear a entrada.
 							gotHamburger = true;
-							forestTileMap.tileMap->getObjectById(Objects::LODGE)->setBlocked(false);
+							tileMap.tileMap->getObjectById(Objects::LODGE)->setBlocked(false);
 							cout << "Pegou o hambúrguer! Cabana desbloqueada" << endl;
-							forestTileMap.tileMap->removeObjectAt(nextColumn, nextRow);
+							tileMap.tileMap->removeObjectAt(nextColumn, nextRow);
 						}
 						else if (object->getId() == Objects::LODGE && gotHamburger)
 						{
@@ -824,7 +824,7 @@ int main()
 				charObject->v = 1;
 			}
 
-			collidingObject = forestTileMap.tileMap->checkIsObjectColliding(charObject->column, charObject->row);
+			collidingObject = tileMap.tileMap->checkIsObjectColliding(charObject->column, charObject->row);
 
 			// Segunda checagem de colisão cobre o caso em que um objeto móvel alcança o jogador após a atualização.
 			if (collidingObject && collidingObject->getType() == AVOID)
@@ -841,7 +841,7 @@ int main()
 	
 	// Libera recursos principais antes de encerrar o processo.
 	glfwTerminate();
-	delete forestTileMap.tileMap;
+	delete tileMap.tileMap;
 	delete charObject;
 	return 0;
 }
