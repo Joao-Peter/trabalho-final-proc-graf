@@ -194,7 +194,6 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 		{
 			int tileId;
 			arq >> tileId;
-			cout << tileId << " ";
 			// Cada marcador opcional altera o tile ou adiciona um objeto naquela posição.
 			bool collidable = false;
 			bool breakable = false;
@@ -232,7 +231,6 @@ TileMap *readMap(const string filename, int tileSetCols, int tileSetRows)
 			}
 			tmap->setTile(c, fileH - r - 1, tileId, collidable, breakable, false, victory);
 		}
-		cout << endl;
 	}
 	arq.close();
 	return tmap;
@@ -661,7 +659,7 @@ int main()
 					int nextRow = object->row;
 					
 					// Caso o objeto saia do mapa, reposiciona sua linha para evitar acesso inválido.
-					if (nextColumn < 0 || nextRow < 0 || nextColumn >= tileMap.tileMap->getWidth() || nextRow >= tileMap.tileMap->getHeight())
+					if (nextRow < 0 || nextRow >= (tileMap.tileMap->getHeight() - 1))
 					{
 						nextRow = 0;
 					}
@@ -744,7 +742,7 @@ int main()
 						currentTile.id + 1, 
 						false, //Colisão
 						true,  //Quebrável
-						false, //Gameover
+						true, //Gameover
 						false  //Vitória
 					);
 				}
